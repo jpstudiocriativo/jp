@@ -42,7 +42,7 @@ function Section({title,subtitle}:{title:string;subtitle:string}){return <div st
 
 export default function Home(){
  const [assets,setAssets]=useState(initialAssets);const [publications,setPublications]=useState(initialPublications);const [view,setView]=useState<View>("Hoje");const [selected,setSelected]=useState<string|null>(null);const [filter,setFilter]=useState("Todos");const [notice,setNotice]=useState("");
- useEffect(()=>{const saved=localStorage.getItem("jp-studio-mvp");if(saved){const state=JSON.parse(saved);setAssets(state.assets);setPublications(state.publications)}},[]);useEffect(()=>{localStorage.setItem("jp-studio-mvp",JSON.stringify({assets,publications}))},[assets,publications]);
+ useEffect(()=>{const saved=localStorage.getItem("jp-studio-mvp-v2");if(saved){const state=JSON.parse(saved);setAssets(state.assets);setPublications(state.publications)}},[]);useEffect(()=>{localStorage.setItem("jp-studio-mvp-v2",JSON.stringify({assets,publications}))},[assets,publications]);
  const current=useMemo(()=>publications.filter(p=>p.date===4&&(filter==="Todos"||p.project===filter)),[publications,filter]);const selectedPub=publications.find(p=>p.id===selected);const selectedAsset=selectedPub&&selectedPub.assetId?assets.find(a=>a.id===selectedPub.assetId):undefined;
  const savePub=(id:string,patch:Partial<Publication>,message:string)=>{setPublications(all=>all.map(p=>p.id===id?{...p,...patch}:p));setNotice(message)};
  const toggleStep=(assetId:string,stepId:string)=>setAssets(all=>all.map(a=>a.id!==assetId?a:{...a,steps:a.steps.map(s=>s.id===stepId?{...s,done:!s.done}:s)}));
