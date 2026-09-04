@@ -1,105 +1,50 @@
 "use client";
-
 import { useMemo, useState } from "react";
 
-type PublicationState = "Em produção" | "Pronto para agendar" | "Agendado" | "Postar hoje";
-type Delivery = { id: number; project: string; channel: string; title: string; date: string; state: PublicationState; progress: string; origin?: string };
-
+type Priority = "Fazer agora" | "Avançar hoje" | "Protegida";
+type Slot = { id:string; project:string; channel:string; format:string; next:string; priority:Priority; time:string; source?:string };
 const projects = [
-  { name: "Aurora", tag: "Entretenimento educativo", color: "#4d3c85", channels: "YouTube · Instagram · TikTok" },
-  { name: "Casa de Afeto", tag: "Decoração afetiva", color: "#b66d4b", channels: "YouTube · Instagram · TikTok" },
-  { name: "Conhecimento Acessível", tag: "Curadoria de conhecimento", color: "#2d7a72", channels: "YouTube" },
-  { name: "Pense IA", tag: "IA facilitada", color: "#2464a8", channels: "YouTube · Instagram · Spotify" },
+  { name:"Aurora", color:"#59427f", tag:"Entretenimento educativo", channels:["YouTube","Instagram","TikTok"] },
+  { name:"Casa de Afeto", color:"#ad6849", tag:"Decoração afetiva", channels:["YouTube","Instagram","TikTok"] },
+  { name:"Conhecimento Acessível", color:"#24766e", tag:"Curadoria de conhecimento", channels:["YouTube"] },
+  { name:"Pense IA", color:"#2864a2", tag:"IA facilitada", channels:["YouTube","Instagram","Spotify"] },
 ];
-
-const deliveries: Delivery[] = [
-  { id: 1, project: "Aurora", channel: "YouTube longo", title: "A verdade incômoda sobre esperar motivação", date: "Hoje · 18:00", state: "Postar hoje", progress: "10/11" },
-  { id: 2, project: "Casa de Afeto", channel: "Instagram · Carrossel", title: "5 cantos que contam a história da sua casa", date: "Hoje · 12:00", state: "Postar hoje", progress: "6/7", origin: "Ideia isolada" },
-  { id: 3, project: "Pense IA", channel: "YouTube longo", title: "IA não substitui quem sabe fazer boas perguntas", date: "Amanhã · 10:00", state: "Pronto para agendar", progress: "11/11" },
-  { id: 4, project: "Conhecimento Acessível", channel: "YouTube longo", title: "Como transformar excesso de informação em repertório", date: "Amanhã · 18:00", state: "Em produção", progress: "7/11" },
-  { id: 5, project: "Aurora", channel: "TikTok", title: "Corte: disciplina não é estética", date: "Sex · 11:00", state: "Agendado", progress: "3/3", origin: "Short #02" },
+const initial:Slot[] = [
+  {id:"a1",project:"Aurora",channel:"YouTube",format:"Vídeo longo",next:"Finalizar a edição no CapCut",priority:"Avançar hoje",time:"18:00"},
+  {id:"a2",project:"Aurora",channel:"Instagram",format:"Reel derivado",next:"Escolher o short e agendar",priority:"Avançar hoje",time:"12:00",source:"Short #02"},
+  {id:"a3",project:"Aurora",channel:"TikTok",format:"Vídeo reaproveitado",next:"Incluir na sessão de postagem em massa",priority:"Fazer agora",time:"11:00",source:"Short #02"},
+  {id:"c1",project:"Casa de Afeto",channel:"YouTube",format:"Vídeo longo",next:"Gravar a narração",priority:"Avançar hoje",time:"18:00"},
+  {id:"c2",project:"Casa de Afeto",channel:"Instagram",format:"Carrossel isolado",next:"Criar as imagens e a legenda",priority:"Avançar hoje",time:"12:00"},
+  {id:"c3",project:"Casa de Afeto",channel:"TikTok",format:"Vídeo reaproveitado",next:"Selecionar um vídeo pronto no banco",priority:"Avançar hoje",time:"11:00"},
+  {id:"ca1",project:"Conhecimento Acessível",channel:"YouTube",format:"Vídeo longo",next:"Concluir o roteiro",priority:"Avançar hoje",time:"18:00"},
+  {id:"p1",project:"Pense IA",channel:"YouTube",format:"Vídeo longo",next:"Agendar no YouTube",priority:"Fazer agora",time:"10:00"},
+  {id:"p2",project:"Pense IA",channel:"Instagram",format:"Reel derivado",next:"Já está agendado",priority:"Protegida",time:"12:00",source:"Short · Perguntas para IA"},
+  {id:"p3",project:"Pense IA",channel:"Spotify",format:"Episódio",next:"Definir o fluxo de produção",priority:"Avançar hoje",time:"08:00"},
 ];
+const nav=["Hoje","Calendário","Produção","Banco de conteúdo","Projetos"] as const; type View=typeof nav[number];
+const tone:Record<Priority,{bg:string;color:string}>={"Fazer agora":{bg:"#fde9e7",color:"#a52e2e"},"Avançar hoje":{bg:"#fff2d8",color:"#8a5b08"},"Protegida":{bg:"#e8f5ec",color:"#227146"}};
+const color=(name:string)=>projects.find(p=>p.name===name)?.color||"#222";
+function Pill({value}:{value:Priority}){const t=tone[value];return <span style={{background:t.bg,color:t.color,borderRadius:99,padding:"4px 8px",fontSize:11,fontWeight:800,whiteSpace:"nowrap"}}>{value.toUpperCase()}</span>}
+function Title({title,subtitle}:{title:string;subtitle:string}){return <div style={{marginBottom:14}}><h2 style={{margin:0,fontSize:19}}>{title}</h2><p style={{margin:"5px 0 0",fontSize:13,color:"var(--muted)"}}>{subtitle}</p></div>}
 
-const bank = [
-  { title: "Corte: disciplina não é estética", project: "Aurora", available: "Reel · TikTok", source: "Vídeo longo · A verdade incômoda" },
-  { title: "Imagem ambientada: canto de leitura", project: "Casa de Afeto", available: "Feed Instagram", source: "Vídeo longo · Casa que acolhe" },
-  { title: "Corte: o prompt não é magia", project: "Pense IA", available: "Reel · TikTok", source: "Vídeo longo · Perguntas para IA" },
-];
-
-const nav = ["Hoje", "Calendário", "Produção", "Banco de conteúdo", "Projetos"] as const;
-type View = typeof nav[number];
-
-const statusStyle: Record<PublicationState, { background: string; color: string }> = {
-  "Em produção": { background: "#eef2ff", color: "#3e4fb7" },
-  "Pronto para agendar": { background: "#eeeafd", color: "#5944cc" },
-  "Agendado": { background: "#e6f5ec", color: "#227247" },
-  "Postar hoje": { background: "#fde9e7", color: "#ad3030" },
-};
-
-function Status({ state }: { state: PublicationState }) {
-  return <span style={{ ...statusStyle[state], borderRadius: 999, padding: "5px 9px", fontSize: 12, fontWeight: 700, whiteSpace: "nowrap" }}>{state.toUpperCase()}</span>;
+export default function Home(){
+ const [view,setView]=useState<View>("Hoje"); const [slots,setSlots]=useState(initial); const [filter,setFilter]=useState("Todos");
+ const shown=useMemo(()=>filter==="Todos"?slots:slots.filter(s=>s.project===filter),[filter,slots]); const critical=shown.filter(s=>s.priority==="Fazer agora"); const safe=shown.filter(s=>s.priority==="Protegida");
+ const protect=(id:string)=>setSlots(all=>all.map(s=>s.id===id?{...s,next:"Já está agendado",priority:"Protegida"}:s));
+ return <main style={{minHeight:"100vh",display:"grid",gridTemplateColumns:"244px 1fr"}}>
+  <aside style={{borderRight:"1px solid var(--line)",background:"#fcfbf9",padding:"28px 16px",position:"sticky",top:0,height:"100vh"}}><div style={{padding:"0 12px 28px"}}><div style={{fontSize:12,letterSpacing:2.2,fontWeight:800,color:"var(--accent)"}}>JP STUDIO</div><div style={{fontSize:15,marginTop:6,color:"var(--muted)"}}>Operações de conteúdo</div></div><nav style={{display:"grid",gap:5}}>{nav.map(n=><button key={n} onClick={()=>setView(n)} style={{textAlign:"left",padding:"11px 12px",border:0,borderRadius:8,cursor:"pointer",background:view===n?"#ece9ff":"transparent",color:view===n?"#4535b3":"var(--ink)",fontWeight:view===n?700:500}}>{n}{n==="Hoje"&&critical.length?<span style={{float:"right",background:"var(--danger)",color:"white",borderRadius:9,padding:"1px 6px",fontSize:11}}>{critical.length}</span>:null}</button>)}</nav><div style={{position:"absolute",bottom:28,padding:"0 12px",color:"var(--muted)",fontSize:12,lineHeight:1.55}}>A plataforma controla compromissos, próximos passos e reaproveitamentos. Seus arquivos seguem nos seus espaços de criação.</div></aside>
+  <section style={{padding:"38px clamp(22px,4vw,64px)",maxWidth:1480,width:"100%",margin:"0 auto"}}><header style={{display:"flex",justifyContent:"space-between",alignItems:"start",gap:24,flexWrap:"wrap",marginBottom:34}}><div><p style={{color:"var(--muted)",margin:0,fontSize:14}}>Quarta-feira, 3 de setembro</p><h1 style={{margin:"8px 0 0",fontSize:32,letterSpacing:-1.1}}>{view==="Hoje"?"O que precisa acontecer hoje":view}</h1></div><button style={{background:"var(--accent)",border:0,borderRadius:8,padding:"11px 15px",color:"white",cursor:"pointer",fontWeight:700}}>+ Nova publicação</button></header>
+   {view==="Hoje"&&<Today slots={shown} safe={safe} critical={critical} filter={filter} setFilter={setFilter} protect={protect}/>} {view==="Calendário"&&<Calendar/>} {view==="Produção"&&<Production/>} {view==="Banco de conteúdo"&&<Bank/>} {view==="Projetos"&&<Projects/>}
+  </section><style jsx global>{`@media(max-width:760px){main{grid-template-columns:1fr!important}aside{position:static!important;height:auto!important;border-right:0!important;border-bottom:1px solid var(--line)}nav{grid-template-columns:repeat(2,minmax(0,1fr))}aside>div:last-child{display:none}}`}</style>
+ </main>
 }
 
-export default function Home() {
-  const [view, setView] = useState<View>("Hoje");
-  const [items, setItems] = useState(deliveries);
-  const [projectFilter, setProjectFilter] = useState("Todos");
-  const filtered = useMemo(() => projectFilter === "Todos" ? items : items.filter((item) => item.project === projectFilter), [items, projectFilter]);
-  const postToday = filtered.filter((item) => item.state === "Postar hoje");
+function Today({slots,safe,critical,filter,setFilter,protect}:{slots:Slot[];safe:Slot[];critical:Slot[];filter:string;setFilter:(v:string)=>void;protect:(id:string)=>void}){const action=slots.length-safe.length;return <><p style={{maxWidth:760,color:"var(--muted)",lineHeight:1.55,marginTop:-16,marginBottom:25}}>Sua obrigação é publicar em cada canal ativo. Hoje são <strong style={{color:"var(--ink)"}}>{slots.length} entregas</strong>: Aurora 3, Casa de Afeto 3, Conhecimento Acessível 1 e Pense IA 3.</p><div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:22}}>{["Todos",...projects.map(p=>p.name)].map(n=><button onClick={()=>setFilter(n)} key={n} style={{border:"1px solid var(--line)",background:filter===n?"var(--ink)":"white",color:filter===n?"white":"var(--ink)",borderRadius:99,padding:"8px 12px",cursor:"pointer",fontSize:13}}>{n}</button>)}</div><section style={{background:critical.length?"#fff8f7":"#f4fbf6",border:`1px solid ${critical.length?"#f0c2bd":"#cce6d5"}`,borderRadius:12,padding:18,marginBottom:24}}><strong style={{fontSize:16}}>{critical.length?`${critical.length} ${critical.length===1?"ação":"ações"} para fazer agora`:"Nenhuma publicação crítica pendente"}</strong><p style={{margin:"6px 0 0",color:"var(--muted)",fontSize:13}}>{critical.length?critical.map(s=>`${s.project} · ${s.channel}: ${s.next}`).join(" | "):"As próximas obrigações continuam visíveis abaixo."}</p></section><div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:12,marginBottom:33}}><Metric value={`${safe.length}/${slots.length}`} label="entregas já protegidas" note="agendadas ou publicadas"/><Metric value={String(action)} label="entregas que pedem ação" note="para fechar a meta do dia"/><Metric value={String(critical.length)} label="tarefas para fazer agora" note="não esperar mais"/></div><Title title="Mapa de entrega de hoje" subtitle="Cada linha é uma publicação obrigatória. A coluna central diz exatamente qual é o próximo passo."/><div style={{display:"grid",gap:12}}>{projects.filter(p=>filter==="Todos"||p.name===filter).map(p=><DayProject key={p.name} name={p.name} slots={slots.filter(s=>s.project===p.name)} protect={protect}/>)}</div></>}
+function Metric({value,label,note}:{value:string;label:string;note:string}){return <div style={{padding:17,background:"white",border:"1px solid var(--line)",borderRadius:11}}><div style={{fontSize:25,fontWeight:800}}>{value}</div><div style={{fontSize:13,fontWeight:700,marginTop:4}}>{label}</div><div style={{color:"var(--muted)",fontSize:12,marginTop:3}}>{note}</div></div>}
+function DayProject({name,slots,protect}:{name:string;slots:Slot[];protect:(id:string)=>void}){return <section style={{background:"white",border:"1px solid var(--line)",borderRadius:12,overflow:"hidden"}}><div style={{padding:"13px 16px",borderLeft:`5px solid ${color(name)}`,display:"flex",justifyContent:"space-between"}}><strong>{name}</strong><span style={{fontSize:12,color:"var(--muted)"}}>{slots.length} publicação{slots.length!==1?"ões":""} prevista{slots.length!==1?"s":""}</span></div>{slots.map(s=><div key={s.id} style={{display:"grid",gridTemplateColumns:"170px minmax(180px,1fr) auto",gap:14,alignItems:"center",padding:"13px 16px",borderTop:"1px solid var(--line)"}}><div><strong style={{fontSize:14}}>{s.channel}</strong><div style={{color:"var(--muted)",fontSize:12,marginTop:3}}>{s.format} · {s.time}</div></div><div><div style={{fontSize:13,fontWeight:600}}>{s.next}</div>{s.source&&<div style={{color:"var(--muted)",fontSize:12,marginTop:3}}>Origem: {s.source}</div>}</div><div style={{display:"flex",gap:8,alignItems:"center"}}><Pill value={s.priority}/>{s.priority!=="Protegida"&&<button onClick={()=>protect(s.id)} style={{border:"1px solid var(--line)",background:"white",borderRadius:7,padding:"7px 9px",cursor:"pointer",fontSize:12}}>Marcar agendada</button>}</div></div>)}</section>}
 
-  function markScheduled(id: number) {
-    setItems((current) => current.map((item) => item.id === id ? { ...item, state: "Agendado" as const } : item));
-  }
-
-  return (
-    <main style={{ minHeight: "100vh", display: "grid", gridTemplateColumns: "244px 1fr" }}>
-      <aside style={{ borderRight: "1px solid var(--line)", background: "#fcfbf9", padding: "28px 16px", position: "sticky", top: 0, height: "100vh" }}>
-        <div style={{ padding: "0 12px 28px" }}><div style={{ fontSize: 12, letterSpacing: 2.2, fontWeight: 800, color: "var(--accent)" }}>JP STUDIO</div><div style={{ fontSize: 15, marginTop: 6, color: "var(--muted)" }}>Operações de conteúdo</div></div>
-        <nav style={{ display: "grid", gap: 5 }}>
-          {nav.map((item) => <button key={item} onClick={() => setView(item)} style={{ textAlign: "left", padding: "11px 12px", border: 0, borderRadius: 8, cursor: "pointer", background: view === item ? "#ece9ff" : "transparent", color: view === item ? "#4535b3" : "var(--ink)", fontWeight: view === item ? 700 : 500 }}>{item}{item === "Hoje" && postToday.length > 0 ? <span style={{ float: "right", background: "var(--danger)", color: "white", borderRadius: 9, padding: "1px 6px", fontSize: 11 }}>{postToday.length}</span> : null}</button>)}
-        </nav>
-        <div style={{ position: "absolute", bottom: 28, padding: "0 12px", color: "var(--muted)", fontSize: 12, lineHeight: 1.55 }}>A plataforma controla a operação. Seus roteiros e arquivos continuam onde você cria.</div>
-      </aside>
-      <section style={{ padding: "38px clamp(22px, 4vw, 64px)", maxWidth: 1480, width: "100%", margin: "0 auto" }}>
-        <header style={{ display: "flex", justifyContent: "space-between", alignItems: "start", gap: 24, flexWrap: "wrap", marginBottom: 34 }}>
-          <div><p style={{ color: "var(--muted)", margin: 0, fontSize: 14 }}>Quarta-feira, 3 de setembro</p><h1 style={{ margin: "8px 0 0", fontSize: 32, letterSpacing: -1.1 }}>{view === "Hoje" ? "Sua torre de controle" : view}</h1></div>
-          <button style={{ background: "var(--accent)", border: 0, borderRadius: 8, padding: "11px 15px", color: "white", cursor: "pointer", fontWeight: 700 }}>+ Nova publicação</button>
-        </header>
-        {view === "Hoje" && <Dashboard deliveries={filtered} postToday={postToday} onSchedule={markScheduled} filter={projectFilter} setFilter={setProjectFilter} />}
-        {view === "Calendário" && <Calendar deliveries={filtered} />}
-        {view === "Produção" && <Production deliveries={filtered} />}
-        {view === "Banco de conteúdo" && <Bank />}
-        {view === "Projetos" && <Projects />}
-      </section>
-      <style jsx global>{`@media (max-width: 760px) { main { grid-template-columns: 1fr !important; } aside { position: static !important; height:auto !important; border-right:0 !important; border-bottom:1px solid var(--line); } nav { grid-template-columns: repeat(2, minmax(0,1fr)); } aside > div:last-child { display:none; } }`}</style>
-    </main>
-  );
-}
-
-function Dashboard({ deliveries, postToday, onSchedule, filter, setFilter }: { deliveries: Delivery[]; postToday: Delivery[]; onSchedule: (id: number) => void; filter: string; setFilter: (value: string) => void }) {
-  return <>
-    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 24 }}>
-      {["Todos", ...projects.map((project) => project.name)].map((name) => <button onClick={() => setFilter(name)} key={name} style={{ border: "1px solid var(--line)", background: filter === name ? "var(--ink)" : "var(--surface)", color: filter === name ? "white" : "var(--ink)", borderRadius: 99, padding: "8px 12px", cursor: "pointer", fontSize: 13 }}>{name}</button>)}
-    </div>
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 14, marginBottom: 34 }}>
-      <Metric value={String(postToday.length)} label="Postar hoje" color="var(--danger)" />
-      <Metric value={String(deliveries.filter((item) => item.state === "Pronto para agendar").length)} label="Prontos para agendar" color="var(--accent)" />
-      <Metric value={String(deliveries.filter((item) => item.state === "Em produção").length)} label="Em produção" color="#3e4fb7" />
-      <Metric value="3" label="Ativos no banco" color="#227247" />
-    </div>
-    <section style={{ marginBottom: 40 }}><SectionTitle title="Ação imediata" subtitle="Publicações vencidas ou previstas para hoje e ainda sem agendamento." />
-      <div style={{ display: "grid", gap: 12 }}>{postToday.length ? postToday.map((item) => <DeliveryCard key={item.id} item={item} action={() => onSchedule(item.id)} />) : <Empty text="Nada precisa ser postado hoje. Sua operação está em dia." />}</div>
-    </section>
-    <section><SectionTitle title="Próximas entregas" subtitle="O que protege os próximos dias de publicação." /><div style={{ display: "grid", gap: 11 }}>{deliveries.filter((item) => item.state !== "Postar hoje").map((item) => <DeliveryCard key={item.id} item={item} />)}</div></section>
-  </>;
-}
-
-function Metric({ value, label, color }: { value: string; label: string; color: string }) { return <div style={{ padding: 18, background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 12 }}><div style={{ fontSize: 29, fontWeight: 800, color }}>{value}</div><div style={{ color: "var(--muted)", fontSize: 13, marginTop: 4 }}>{label}</div></div>; }
-function SectionTitle({ title, subtitle }: { title: string; subtitle: string }) { return <div style={{ marginBottom: 14 }}><h2 style={{ margin: 0, fontSize: 19 }}>{title}</h2><p style={{ margin: "5px 0 0", fontSize: 13, color: "var(--muted)" }}>{subtitle}</p></div>; }
-function Empty({ text }: { text: string }) { return <div style={{ padding: 20, border: "1px dashed var(--line)", borderRadius: 10, color: "var(--muted)", fontSize: 14 }}>{text}</div>; }
-function DeliveryCard({ item, action }: { item: Delivery; action?: () => void }) { return <article style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) auto", gap: 18, alignItems: "center", padding: 16, background: "var(--surface)", border: item.state === "Postar hoje" ? "1px solid #f0b7b1" : "1px solid var(--line)", borderRadius: 11 }}><div><div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 7 }}><strong>{item.title}</strong><Status state={item.state} /></div><div style={{ fontSize: 13, color: "var(--muted)" }}>{item.project} · {item.channel} · {item.date} · Checklist {item.progress}{item.origin ? ` · ${item.origin}` : ""}</div></div>{action ? <button onClick={action} style={{ border: "1px solid #df8580", color: "#9e2f2b", background: "#fff7f6", borderRadius: 8, padding: "9px 11px", cursor: "pointer", fontWeight: 700 }}>Marcar agendado</button> : <button style={{ border: "1px solid var(--line)", background: "white", borderRadius: 8, padding: "9px 11px", cursor: "pointer" }}>Abrir</button>}</article>; }
-
-function Calendar({ deliveries }: { deliveries: Delivery[] }) { return <section><SectionTitle title="Setembro · calendário editorial" subtitle="Cada bloco é uma publicação, não uma tarefa solta." /><div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(120px, 1fr))", gap: 8, overflowX: "auto" }}>{[1,2,3,4,5,6,7].map((day) => <div key={day} style={{ minHeight: 170, padding: 10, background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 9 }}><strong style={{ fontSize: 14 }}>{day} set</strong>{deliveries.filter((_, index) => index % 5 === day % 5).slice(0, 2).map((item) => <div key={item.id} style={{ marginTop: 10, padding: 7, background: statusStyle[item.state].background, color: statusStyle[item.state].color, borderRadius: 6, fontSize: 11, lineHeight: 1.35 }}>{item.project}<br />{item.channel}</div>)}</div>)}</div></section>; }
-function Production({ deliveries }: { deliveries: Delivery[] }) { const columns = ["Em produção", "Pronto para agendar", "Agendado"] as const; return <section><SectionTitle title="Pipeline de produção" subtitle="O checklist detalhado vive dentro de cada conteúdo." /><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(235px, 1fr))", gap: 15 }}>{columns.map((state) => <div key={state}><h3 style={{ fontSize: 14, marginBottom: 10 }}>{state}</h3>{deliveries.filter((item) => item.state === state).map((item) => <div key={item.id} style={{ background: "white", padding: 14, border: "1px solid var(--line)", borderRadius: 10, marginBottom: 9 }}><strong style={{ fontSize: 14 }}>{item.title}</strong><p style={{ color: "var(--muted)", fontSize: 12, marginBottom: 0 }}>{item.project} · {item.progress}</p></div>)}</div>)}</div></section>; }
-function Bank() { return <section><SectionTitle title="Banco de conteúdo" subtitle="Ativos prontos para distribuição — não é uma pasta de arquivos." /><div style={{ display: "grid", gap: 11 }}>{bank.map((item) => <article key={item.title} style={{ background: "white", padding: 17, border: "1px solid var(--line)", borderRadius: 10 }}><div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}><strong>{item.title}</strong><span style={{ color: "#227247", fontSize: 12, fontWeight: 700 }}>{item.available}</span></div><p style={{ color: "var(--muted)", fontSize: 13, margin: "8px 0 0" }}>{item.project} · Origem: {item.source}</p></article>)}</div></section>; }
-function Projects() { return <section><SectionTitle title="Projetos em operação" subtitle="Projetos incubados não entram em riscos ou obrigações de publicação." /><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(235px, 1fr))", gap: 14 }}>{projects.map((project) => <article key={project.name} style={{ padding: 18, background: "white", border: "1px solid var(--line)", borderRadius: 11, borderTop: `4px solid ${project.color}` }}><h3 style={{ margin: 0 }}>{project.name}</h3><p style={{ color: "var(--muted)", fontSize: 13 }}>{project.tag}</p><p style={{ fontSize: 13, marginBottom: 0 }}>{project.channels}</p></article>)}</div><h3 style={{ marginTop: 34, fontSize: 15, color: "var(--muted)" }}>Incubadora: Pookies · Climatização Inteligente</h3></section>; }
+function Calendar(){const [day,setDay]=useState(3);return <><p style={{maxWidth:760,color:"var(--muted)",lineHeight:1.55,marginTop:-16,marginBottom:25}}>A regra de setembro está aplicada a todos os dias: <strong style={{color:"var(--ink)"}}>10 publicações por dia</strong>, distribuídas entre os quatro projetos. Clique em um dia para abrir as 10 entregas dele.</p><div style={{display:"grid",gridTemplateColumns:"repeat(7,minmax(100px,1fr))",gap:8}}>{Array.from({length:30},(_,i)=>i+1).map(n=><button onClick={()=>setDay(n)} key={n} style={{minHeight:104,textAlign:"left",padding:11,cursor:"pointer",borderRadius:10,border:n===day?"2px solid var(--accent)":"1px solid var(--line)",background:n===day?"#f4f2ff":"white"}}><strong>{n} set</strong><div style={{marginTop:15,fontSize:13,fontWeight:700}}>10 publicações</div><div style={{marginTop:5,fontSize:11,color:"var(--muted)"}}>Aurora 3 · Casa 3<br/>Conhecimento 1 · Pense IA 3</div></button>)}</div><section style={{marginTop:32}}><Title title={`${String(day).padStart(2,"0")} de setembro · 10 entregas`} subtitle="Cada dia é completo; os títulos e ativos específicos entram no planejamento."/><DayTable/></section></>}
+function DayTable(){return <div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",background:"white",border:"1px solid var(--line)"}}><thead><tr style={{textAlign:"left",color:"var(--muted)",fontSize:12}}><th style={{padding:12}}>Projeto</th><th style={{padding:12}}>Canal</th><th style={{padding:12}}>Entrega prevista</th><th style={{padding:12}}>Regra</th></tr></thead><tbody>{projects.flatMap(p=>p.channels.map(c=><tr key={p.name+c} style={{borderTop:"1px solid var(--line)"}}><td style={{padding:12,fontWeight:700,fontSize:13}}>{p.name}</td><td style={{padding:12,fontSize:13}}>{c}</td><td style={{padding:12,fontSize:13}}>{c==="TikTok"?"Vídeo reaproveitado":c==="Instagram"?"Reel, post ou carrossel":c==="Spotify"?"Episódio":"Vídeo longo"}</td><td style={{padding:12,color:"var(--muted)",fontSize:12}}>{c==="TikTok"?"Selecionado no banco; sem produção exclusiva":c==="Instagram"?"Derivado do banco ou ideia isolada":"Definir no planejamento editorial"}</td></tr>))}</tbody></table></div>}
+function Production(){const work=[["Aurora · vídeo longo","Publicação: hoje, 18:00","Finalizar edição no CapCut"],["Casa de Afeto · vídeo longo","Publicação: hoje, 18:00","Gravar narração"],["Conhecimento Acessível · vídeo longo","Publicação: hoje, 18:00","Concluir roteiro"],["Pense IA · vídeo longo","Publicação: hoje, 10:00","Agendar no YouTube"]];return <><p style={{maxWidth:760,color:"var(--muted)",lineHeight:1.55,marginTop:-16,marginBottom:25}}>Produção mostra somente os ativos que precisam avançar para proteger as próximas publicações — não uma lista genérica de tarefas.</p><Title title="Avanços necessários hoje" subtitle="Trabalho criativo ligado diretamente a uma entrega com prazo."/><div style={{display:"grid",gap:11}}>{work.map(([t,d,a])=><article key={t} style={{padding:16,background:"white",border:"1px solid var(--line)",borderRadius:10,display:"flex",justifyContent:"space-between",gap:20,flexWrap:"wrap"}}><div><strong>{t}</strong><p style={{margin:"5px 0 0",color:"var(--muted)",fontSize:13}}>{d}</p></div><strong style={{fontSize:14}}>{a}</strong></article>)}</div></>}
+function Bank(){const items=[["Corte: disciplina não é estética","Aurora","Reel · TikTok","Vídeo longo · A verdade incômoda"],["Imagem ambientada: canto de leitura","Casa de Afeto","Feed Instagram","Vídeo longo · Casa que acolhe"],["Corte: o prompt não é magia","Pense IA","Reel · TikTok","Vídeo longo · Perguntas para IA"]];return <><p style={{maxWidth:760,color:"var(--muted)",lineHeight:1.55,marginTop:-16,marginBottom:25}}>O banco reúne ativos que já existem e podem ser distribuídos. Ele alimenta principalmente Reels e TikTok sem criar produção nova.</p><Title title="Disponível para reaproveitar" subtitle="Selecione um ativo e use-o em uma publicação compatível."/><div style={{display:"grid",gap:11}}>{items.map(([t,p,a,o])=><article key={t} style={{background:"white",padding:17,border:"1px solid var(--line)",borderRadius:10}}><div style={{display:"flex",justifyContent:"space-between",gap:12,flexWrap:"wrap"}}><strong>{t}</strong><span style={{color:"#227247",fontSize:12,fontWeight:700}}>{a}</span></div><p style={{color:"var(--muted)",fontSize:13,margin:"8px 0 0"}}>{p} · Origem: {o}</p></article>)}</div></>}
+function Projects(){return <><p style={{maxWidth:760,color:"var(--muted)",lineHeight:1.55,marginTop:-16,marginBottom:25}}>A cadência de setembro está explícita: cada canal ativo recebe uma publicação diária. Projetos incubados não geram pendências.</p><div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(235px,1fr))",gap:14}}>{projects.map(p=><article key={p.name} style={{padding:18,background:"white",border:"1px solid var(--line)",borderRadius:11,borderTop:`4px solid ${p.color}`}}><h3 style={{margin:0}}>{p.name}</h3><p style={{color:"var(--muted)",fontSize:13}}>{p.tag}</p><p style={{fontSize:13,marginBottom:0}}><strong>{p.channels.length} publicações/dia</strong><br/>{p.channels.join(" · ")}<br/><span style={{color:"var(--muted)"}}>{p.channels.length*30} slots em setembro</span></p></article>)}</div><h3 style={{marginTop:34,fontSize:15,color:"var(--muted)"}}>Incubadora: Pookies · Climatização Inteligente</h3></>}
