@@ -16,7 +16,7 @@ O sistema separa o que é produzido do que é publicado: um vídeo curto pode vi
 
 ## Arquitetura de evolução
 
-O MVP usa dados locais para validar o fluxo. Para produção, conecte um projeto Supabase (Postgres, Auth e Storage) e substitua os dados demonstrativos por estas entidades: `Project`, `ContentIdea`, `ContentAsset`, `ProductionTask`, `Publication`, `ContentBankEntry` e `Reference`.
+O MVP usa dados locais para validar o fluxo. A conexão de produção usa Supabase (Postgres e Auth), sem exigir armazenamento de mídia. A migração em `supabase/migrations/0001_content_operations.sql` cria projetos, canais, conteúdos, etapas de produção, publicações e atualizações em lote. Copie `.env.example` para `.env.local` e informe a chave `anon` pública do projeto.
 
 ## Rodar localmente
 
