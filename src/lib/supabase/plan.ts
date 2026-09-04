@@ -128,7 +128,10 @@ export async function importAuroraSeptemberPlan(client: SupabaseClient) {
   const steps = auroraSeptemberIdeas.flatMap((idea) => {
     const contentId = existingByTitle.get(idea.title);
     if (!contentId || idsWithSteps.has(contentId)) return [];
-    return longVideoSteps.map(([block, label, isRequired], index) => ({ content_id: contentId, block, label, is_required: isRequired, is_done: Boolean(idea.published), completed_at: idea.published ? doneAt : null, sort_order: index + 1 }));
+    return longVideoSteps.map(([block, label, isRequired], index) => {
+      const done = Boolean(idea.published) || block === "1 · Ideia";
+      return { content_id: contentId, block, label, is_required: isRequired, is_done: done, completed_at: done ? doneAt : null, sort_order: index + 1 };
+    });
   });
   if (steps.length) {
     const { error } = await client.from("production_steps").insert(steps);
@@ -147,6 +150,19 @@ export async function importAuroraSeptemberPlan(client: SupabaseClient) {
     if (error) throw error;
   }
   return { created: newIdeas.length };
+}
+
+// O plano editorial enviado já comprova as cinco etapas de concepção.
+// Também corrige itens importados antes desta regra existir.
+export async function syncAuroraPlanningBase(client: SupabaseClient) {
+  const { data: aurora, error: projectError } = await client.from("projects").select("id").eq("name", "Aurora").maybeSingle();
+  if (projectError || !aurora) return;
+  const { data: items, error } = await client.from("content_items").select("id").eq("project_id", aurora.id).eq("type", "youtube_long");
+  if (error || !items?.length) return;
+  const { error: updateError } = await client.from("production_steps")
+    .update({ is_done: true, completed_at: new Date().toISOString() })
+    .in("content_id", items.map((item) => item.id)).eq("block", "1 · Ideia").eq("is_done", false);
+  if (updateError) throw updateError;
 }
 
 export async function loadProduction(client: SupabaseClient): Promise<ProductionContent[]> {
