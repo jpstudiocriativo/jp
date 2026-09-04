@@ -1,0 +1,4 @@
+:root { --ink:#1f2630; --muted:#68707d; --line:#e8e6e1; --paper:#f8f7f4; --surface:#fff; --accent:#5f4ee5; --danger:#c43d3d; }
+* { box-sizing: border-box; }
+body { margin:0; background:var(--paper); color:var(--ink); font-family:Arial, Helvetica, sans-serif; }
+button { font: inherit; }
