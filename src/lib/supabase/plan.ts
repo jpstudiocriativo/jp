@@ -18,6 +18,15 @@ export type PlannedPublication = {
   title?: string;
 };
 
+export type ProductionContent = {
+  id: string;
+  title: string;
+  project: string;
+  reference: string | null;
+  idea: string | null;
+  steps: { id: string; block: string; label: string; isRequired: boolean; isDone: boolean }[];
+};
+
 const presentationStatus: Record<string, PlannedPublication["status"]> = {
   empty: "Sem conteúdo",
   in_progress: "Em construção",
@@ -138,4 +147,20 @@ export async function importAuroraSeptemberPlan(client: SupabaseClient) {
     if (error) throw error;
   }
   return { created: newIdeas.length };
+}
+
+export async function loadProduction(client: SupabaseClient): Promise<ProductionContent[]> {
+  const { data, error } = await client.from("content_items")
+    .select("id,title,technical_reference,idea,project:projects(name),steps:production_steps(id,block,label,is_required,is_done,sort_order)")
+    .order("created_at");
+  if (error) throw error;
+  return (data ?? []).map((item: any) => ({
+    id: item.id, title: item.title, project: item.project?.name ?? "Projeto", reference: item.technical_reference, idea: item.idea,
+    steps: (item.steps ?? []).sort((a: any, b: any) => a.sort_order - b.sort_order).map((step: any) => ({ id: step.id, block: step.block, label: step.label, isRequired: step.is_required, isDone: step.is_done })),
+  }));
+}
+
+export async function setProductionStep(client: SupabaseClient, stepId: string, isDone: boolean) {
+  const { error } = await client.from("production_steps").update({ is_done: isDone, completed_at: isDone ? new Date().toISOString() : null }).eq("id", stepId);
+  if (error) throw error;
 }

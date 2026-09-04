@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { AuthGate } from "@/components/auth-gate";
 import { requireSupabase } from "@/lib/supabase/client";
-import { ensureSeptember2026Plan, importAuroraSeptemberPlan, loadSeptember2026Plan, type PlannedPublication } from "@/lib/supabase/plan";
+import { ensureSeptember2026Plan, importAuroraSeptemberPlan, loadProduction, loadSeptember2026Plan, setProductionStep, type PlannedPublication, type ProductionContent } from "@/lib/supabase/plan";
 
 type View = "Hoje" | "Plano mensal" | "Produção" | "Banco de conteúdo" | "Atualizações em lote";
 const nav: View[] = ["Hoje", "Plano mensal", "Produção", "Banco de conteúdo", "Atualizações em lote"];
@@ -16,12 +16,13 @@ export default function Home() { return <AuthGate>{(session) => <Workspace sessi
 function Workspace({ session }: { session: Session }) {
   const [view, setView] = useState<View>("Hoje");
   const [plan, setPlan] = useState<PlannedPublication[]>([]);
+  const [production, setProduction] = useState<ProductionContent[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
 
   const loadPlan = useCallback(async () => {
     setLoading(true);
-    try { setPlan(await loadSeptember2026Plan(requireSupabase())); }
+    try { const client = requireSupabase(); const [loadedPlan, loadedProduction] = await Promise.all([loadSeptember2026Plan(client), loadProduction(client)]); setPlan(loadedPlan); setProduction(loadedProduction); }
     catch (error) { setMessage(error instanceof Error ? error.message : "Não foi possível carregar o plano."); }
     finally { setLoading(false); }
   }, []);
@@ -46,19 +47,26 @@ function Workspace({ session }: { session: Session }) {
     } catch (error) { setMessage(error instanceof Error ? error.message : "Não foi possível importar o plano da Aurora."); setLoading(false); }
   }
 
+  async function toggleStep(stepId: string, isDone: boolean) {
+    try {
+      await setProductionStep(requireSupabase(), stepId, isDone);
+      setProduction((items) => items.map((item) => ({ ...item, steps: item.steps.map((step) => step.id === stepId ? { ...step, isDone } : step) })));
+    } catch (error) { setMessage(error instanceof Error ? error.message : "Não foi possível atualizar a etapa."); }
+  }
+
   return <main style={{ minHeight: "100vh", display: "grid", gridTemplateColumns: "245px 1fr", fontFamily: "Arial, sans-serif", background: "#f8f7f4", color: "#1f2630" }}>
     <aside style={{ borderRight: "1px solid #e8e6e1", background: "#fcfbf9", padding: "28px 16px" }}><div style={{ padding: "0 12px 28px" }}><div style={{ fontSize: 12, letterSpacing: 2.2, fontWeight: 800, color: "#5f4ee5" }}>JP STUDIO</div><div style={{ fontSize: 14, marginTop: 6, color: "#68707d" }}>{session.user.email}</div></div><nav style={{ display: "grid", gap: 5 }}>{nav.map((item) => <button key={item} onClick={() => setView(item)} style={{ textAlign: "left", border: 0, borderRadius: 8, padding: "11px 12px", background: view === item ? "#ece9ff" : "transparent", color: view === item ? "#4535b3" : "#1f2630", cursor: "pointer", fontWeight: view === item ? 700 : 500 }}>{item}</button>)}</nav><p style={{ margin: "auto 12px 0", paddingTop: 50, color: "#68707d", fontSize: 12, lineHeight: 1.5 }}>A plataforma guarda plano, progresso e evidências. Arquivos pesados continuam no seu Drive, CapCut ou outro espaço externo.</p></aside>
-    <section style={{ padding: "38px clamp(22px, 4vw, 64px)", maxWidth: 1450, width: "100%", margin: "0 auto" }}><header style={{ marginBottom: 28 }}><p style={{ margin: 0, color: "#68707d", fontSize: 14 }}>Setembro de 2026 · operação editorial</p><h1 style={{ margin: "8px 0 0", fontSize: 31, letterSpacing: -1 }}>{view}</h1></header>{message && <div style={{ padding: 12, borderRadius: 8, background: "#e7f5eb", color: "#227146", fontSize: 13, marginBottom: 18 }}>{message}</div>}{loading ? <p>Carregando plano…</p> : plan.length === 0 ? <EmptyPlan createPlan={createPlan} /> : <LoadedPlan view={view} plan={plan} importAurora={importAurora} />}</section>
+    <section style={{ padding: "38px clamp(22px, 4vw, 64px)", maxWidth: 1450, width: "100%", margin: "0 auto" }}><header style={{ marginBottom: 28 }}><p style={{ margin: 0, color: "#68707d", fontSize: 14 }}>Setembro de 2026 · operação editorial</p><h1 style={{ margin: "8px 0 0", fontSize: 31, letterSpacing: -1 }}>{view}</h1></header>{message && <div style={{ padding: 12, borderRadius: 8, background: "#e7f5eb", color: "#227146", fontSize: 13, marginBottom: 18 }}>{message}</div>}{loading ? <p>Carregando plano…</p> : plan.length === 0 ? <EmptyPlan createPlan={createPlan} /> : <LoadedPlan view={view} plan={plan} production={production} importAurora={importAurora} toggleStep={toggleStep} />}</section>
   </main>;
 }
 
 function EmptyPlan({ createPlan }: { createPlan: () => void }) { return <section style={{ maxWidth: 650, background: "white", border: "1px solid #e8e6e1", borderRadius: 14, padding: 28 }}><h2 style={{ marginTop: 0 }}>Ainda não há um plano carregado</h2><p style={{ color: "#68707d", lineHeight: 1.55 }}>O primeiro passo não é criar posts isolados: é gerar o plano-base de setembro. Ele cria as 300 obrigações — 10 por dia — sem inventar ideias nem conteúdos.</p><ul style={{ color: "#68707d", lineHeight: 1.7 }}><li>Aurora: 90 slots</li><li>Casa de Afeto: 90 slots</li><li>Conhecimento Acessível: 30 slots</li><li>Pense IA: 90 slots</li></ul><button onClick={createPlan} style={{ border: 0, borderRadius: 8, background: "#5f4ee5", color: "white", padding: "11px 14px", fontWeight: 700, cursor: "pointer" }}>Criar plano de setembro</button></section> }
 
-function LoadedPlan({ view, plan, importAurora }: { view: View; plan: PlannedPublication[]; importAurora: () => void }) {
+function LoadedPlan({ view, plan, production, importAurora, toggleStep }: { view: View; plan: PlannedPublication[]; production: ProductionContent[]; importAurora: () => void; toggleStep: (stepId: string, isDone: boolean) => void }) {
   const today = plan.filter((item) => item.date === 4);
   if (view === "Hoje") return <Today rows={today} />;
   if (view === "Plano mensal") return <Month plan={plan} />;
-  if (view === "Produção") return <Production plan={plan} importAurora={importAurora} />;
+  if (view === "Produção") return <Production plan={plan} production={production} importAurora={importAurora} toggleStep={toggleStep} />;
   if (view === "Banco de conteúdo") return <Bank />;
   return <Batch />;
 }
@@ -69,7 +77,16 @@ function ProjectRows({ project, rows }: { project: string; rows: PlannedPublicat
 
 function Month({ plan }: { plan: PlannedPublication[] }) { return <><p style={{ color: "#68707d", marginTop: -14, lineHeight: 1.55 }}>O plano mensal cria a promessa de publicação antes do trabalho criativo. Cada célula abaixo representa dez obrigações, uma para cada canal ativo.</p><div style={{ display: "grid", gridTemplateColumns: "repeat(7,minmax(105px,1fr))", gap: 8, marginTop: 25 }}>{Array.from({ length: 30 }, (_, index) => index + 1).map((day) => { const entries = plan.filter((row) => row.date === day); const protectedCount = entries.filter((row) => row.status === "Agendada" || row.status === "Publicada").length; return <div key={day} style={{ minHeight: 105, padding: 11, background: "white", border: "1px solid #e8e6e1", borderRadius: 9 }}><strong>{day} set</strong><div style={{ marginTop: 13, fontSize: 13, fontWeight: 700 }}>{protectedCount}/10 garantidas</div><div style={{ marginTop: 5, fontSize: 11, color: "#68707d" }}>{entries.length}/10 slots criados</div></div> })}</div></> }
 
-function Production({ plan, importAurora }: { plan: PlannedPublication[]; importAurora: () => void }) { const linked = plan.filter((row) => row.title).length; const auroraLoaded = plan.filter((row) => row.project === "Aurora" && row.channel === "YouTube" && row.title).length; return <section style={{ maxWidth: 700 }}><h2 style={{ marginTop: 0 }}>Produção começa com o plano, não com tarefas soltas</h2><p style={{ color: "#68707d", lineHeight: 1.55 }}>Há {linked} conteúdo(s) vinculados aos slots até agora. Cada ideia importada recebe o checklist do vídeo longo, em vez de só virar um título no calendário.</p><div style={{ padding: 18, border: "1px dashed #d6d2ca", borderRadius: 10, background: "white" }}><strong>Plano recebido · Aurora</strong><p style={{ color: "#68707d", fontSize: 13, lineHeight: 1.5 }}>30 ideias de YouTube identificadas. Inclui títulos, referências, aprendizados e texto de thumbnail. Os dias 1–3 são reconhecidos como publicados; os demais começam em construção.</p>{auroraLoaded === 30 ? <strong style={{ color: "#227146", fontSize: 13 }}>Plano já está importado e vinculado aos 30 dias.</strong> : <button onClick={importAurora} style={{ border: 0, borderRadius: 8, background: "#5f4ee5", color: "white", padding: "11px 14px", fontWeight: 700, cursor: "pointer" }}>Importar plano da Aurora</button>}</div></section> }
+function Production({ plan, production, importAurora, toggleStep }: { plan: PlannedPublication[]; production: ProductionContent[]; importAurora: () => void; toggleStep: (stepId: string, isDone: boolean) => void }) {
+  const auroraLoaded = plan.filter((row) => row.project === "Aurora" && row.channel === "YouTube" && row.title).length;
+  if (!auroraLoaded) return <section style={{ maxWidth: 700 }}><h2 style={{ marginTop: 0 }}>Produção</h2><p style={{ color: "#68707d" }}>O plano foi recebido e está pronto para virar sua área de trabalho.</p><button onClick={importAurora} style={{ border: 0, borderRadius: 8, background: "#5f4ee5", color: "white", padding: "11px 14px", fontWeight: 700, cursor: "pointer" }}>Importar plano da Aurora</button></section>;
+  return <section><p style={{ color: "#68707d", marginTop: -14, lineHeight: 1.55 }}>Aqui é onde você trabalha. Marque uma etapa assim que ela estiver feita; o status fica salvo. Quando você enviar um material por aqui, eu aplicarei a mesma marcação nos itens correspondentes.</p><div style={{ display: "grid", gap: 14, marginTop: 24 }}>{production.filter((item) => item.project === "Aurora").map((item) => <ContentChecklist key={item.id} item={item} toggleStep={toggleStep} />)}</div></section>
+}
+
+function ContentChecklist({ item, toggleStep }: { item: ProductionContent; toggleStep: (stepId: string, isDone: boolean) => void }) {
+  const required = item.steps.filter((step) => step.isRequired); const done = required.filter((step) => step.isDone).length;
+  return <details style={{ background: "white", border: "1px solid #e8e6e1", borderRadius: 11, overflow: "hidden" }}><summary style={{ cursor: "pointer", padding: "16px", listStyle: "none", display: "flex", justifyContent: "space-between", gap: 18, alignItems: "center" }}><div><strong>{item.title}</strong><div style={{ color: "#68707d", fontSize: 12, marginTop: 5 }}>{done}/{required.length} etapas obrigatórias concluídas</div></div><span style={{ color: done === required.length ? "#227146" : "#8a5b08", fontSize: 12, fontWeight: 800 }}>{done === required.length ? "CONCLUÍDO" : "ABRIR CHECKLIST"}</span></summary><div style={{ borderTop: "1px solid #e8e6e1", padding: "14px 16px 18px" }}>{item.reference && <p style={{ fontSize: 12, color: "#68707d", marginTop: 0 }}><strong>Referência:</strong> {item.reference}</p>}{["1 · Ideia", "2 · Construção", "3 · Publicação"].map((block) => <div key={block} style={{ marginTop: 16 }}><strong style={{ fontSize: 13 }}>{block}</strong><div style={{ display: "grid", gap: 8, marginTop: 8 }}>{item.steps.filter((step) => step.block === block).map((step) => <label key={step.id} style={{ display: "flex", alignItems: "center", gap: 9, cursor: "pointer", color: step.isDone ? "#227146" : "#303741", fontSize: 13 }}><input type="checkbox" checked={step.isDone} onChange={(event) => toggleStep(step.id, event.target.checked)} /><span style={{ textDecoration: step.isDone ? "line-through" : "none" }}>{step.label}{!step.isRequired ? " · opcional" : ""}</span></label>)}</div></div>)}</div></details>
+}
 
 function Bank() { return <section style={{ maxWidth: 700 }}><h2 style={{ marginTop: 0 }}>Banco de conteúdo ainda vazio</h2><p style={{ color: "#68707d", lineHeight: 1.55 }}>Ele será alimentado quando um Short, imagem ou outro ativo for concluído. O banco não é uma pasta: cada item indicará onde já foi usado e em quais canais ele pode ser reaproveitado.</p></section> }
 
