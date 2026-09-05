@@ -402,6 +402,7 @@ export async function reuseContent(client: SupabaseClient, contentId: string, pr
   if (platform === 'spotify' && content.type !== 'spotify_episode') throw new Error('Escolha um episódio de podcast para o Spotify.');
   if (platform === 'youtube' && !['youtube_long', 'short'].includes(content.type)) throw new Error('Escolha um vídeo para o YouTube.');
   if (platform === 'tiktok' && !['short', 'youtube_long'].includes(content.type)) throw new Error('Escolha um vídeo para reaproveitar no TikTok.');
+  if (platform === 'pinterest' && !['image', 'carousel'].includes(content.type)) throw new Error('Escolha uma imagem ou carrossel para o Pinterest.');
   const candidates = ws.publications.filter(p => p.project_id === projectId && p.platform === platform && p.planned_for === date);
   if (candidates.some(p => p.content_id === contentId)) return;
   const empty = candidates.find(p => p.slot_key === 'main' && !p.content_id && p.status === 'empty');

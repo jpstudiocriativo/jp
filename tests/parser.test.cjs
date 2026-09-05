@@ -13,14 +13,16 @@ function load(file) {
 const {parsePlanFile} = load(path.join(root,'src/lib/plan-parser.ts'));
 const {buildSteps} = load(path.join(root,'src/lib/workflow.ts'));
 const options = {month:'2026-09',defaultPlatform:'youtube',defaultFormat:'youtube_long'};
-test('Casa real: 95 supported deliveries and correct weekly long titles',{skip:!fs.existsSync(path.resolve(root,'../Casa de Afeto/CASA DE AFETO/30-ideias-setembro.md'))},()=>{
+test('Casa real: 125 supported deliveries and correct weekly long titles',{skip:!fs.existsSync(path.resolve(root,'../Casa de Afeto/CASA DE AFETO/30-ideias-setembro.md'))},()=>{
  const file = path.resolve(root,'../Casa de Afeto/CASA DE AFETO/30-ideias-setembro.md');
  const plan = parsePlanFile('plano.md',fs.readFileSync(file,'utf8'),options);
- assert.equal(plan.projectName,'Casa de Afeto'); assert.equal(plan.entries.length,95);
+ assert.equal(plan.projectName,'Casa de Afeto'); assert.equal(plan.entries.length,125);
  assert.equal(plan.entries.filter(e=>e.format==='youtube_long').length,5);
  assert.match(plan.entries.find(e=>e.date==='2026-09-02'&&e.format==='youtube_long').title,/agradar todo mundo/);
  assert.equal(plan.entries.find(e=>e.date==='2026-09-02'&&e.platform==='instagram').format,'carousel');
- assert.ok(plan.warnings.some(w=>/Pinterest/i.test(w)));
+ assert.equal(plan.entries.filter(e=>e.platform==='pinterest').length,30);
+ assert.equal(plan.entries.find(e=>e.date==='2026-09-01'&&e.platform==='pinterest').format,'image');
+ assert.equal(plan.warnings.some(w=>/Pinterest.*não.*suportado/i.test(w)),false);
 });
 test('Aurora real: 30 longs; published status and thumbnail planning evidence preserved',{skip:!fs.existsSync(path.resolve(root,'../Aurora/01_Conteúdo/02_Ideias/30-ideais-setembro.md'))},()=>{
  const file=path.resolve(root,'../Aurora/01_Conteúdo/02_Ideias/30-ideais-setembro.md');

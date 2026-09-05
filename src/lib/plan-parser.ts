@@ -35,11 +35,12 @@ function parseDate(value: string, context: Context, location: string): string {
 
 function resolvePlatform(value: string): Platform | 'unsupported' | undefined {
   const name = normalize(value);
-  if (/pinterest|stories|facebook|linkedin|threads|twitter|^x$/.test(name)) return 'unsupported';
+  if (/stories|facebook|linkedin|threads|twitter|^x$/.test(name)) return 'unsupported';
   if (/youtube|you tube|\byt\b|^shorts?$/.test(name)) return 'youtube';
   if (/instagram|\binsta\b|\breels?\b/.test(name)) return 'instagram';
   if (/tiktok|tik tok/.test(name)) return 'tiktok';
   if (/spotify|podcast/.test(name)) return 'spotify';
+  if (/pinterest|^pin(?:s)?$/.test(name)) return 'pinterest';
   return undefined;
 }
 
@@ -47,6 +48,7 @@ function resolveFormat(value: string): Format | undefined {
   const name = normalize(value);
   if (/youtube long|video longo|videos longos|\blongo\b|long form/.test(name)) return 'youtube_long';
   if (/spotify episode|podcast|episodio de audio/.test(name)) return 'spotify_episode';
+  if (/^pin(?:s)?$|pinterest/.test(name)) return 'image';
   if (/carousel|carrossel/.test(name)) return 'carousel';
   if (/^image$|imagem|\bfoto\b|post estatico|feed estatico/.test(name)) return 'image';
   if (/\bshorts?\b|\breels?\b|video curto|videos curtos/.test(name)) return 'short';
@@ -56,7 +58,7 @@ function resolveFormat(value: string): Format | undefined {
 function compatible(platform: Platform, format: Format) {
   return platform === 'youtube' ? ['youtube_long', 'short'].includes(format)
     : platform === 'instagram' ? ['short', 'carousel', 'image'].includes(format)
-      : platform === 'tiktok' ? format === 'short' : format === 'spotify_episode';
+      : platform === 'tiktok' ? format === 'short' : platform === 'pinterest' ? ['image', 'carousel'].includes(format) : format === 'spotify_episode';
 }
 
 function entryFormat(platform: Platform, explicit: string, hint: string, context: Context, location: string): Format {
@@ -69,6 +71,7 @@ function entryFormat(platform: Platform, explicit: string, hint: string, context
   if (context.options.defaultFormat && compatible(platform, context.options.defaultFormat)) return context.options.defaultFormat;
   if (platform === 'tiktok') return 'short';
   if (platform === 'spotify') return 'spotify_episode';
+  if (platform === 'pinterest') return 'image';
   const fallback = platform === 'youtube' ? 'youtube_long' : 'image';
   context.warnings.add(`Formato não indicado em algumas entregas de ${platforms[platform]}; usado “${formats[fallback]}”. Confira os formatos na prévia.`);
   return fallback;
@@ -117,7 +120,7 @@ function recordEntry(raw: Fields, context: Context, location: string, hints?: { 
   const channelName = field(record, 'platform', 'plataforma', 'channel', 'canal', 'rede', 'rede social');
   const explicitPlatform = resolvePlatform(channelName);
   if (explicitPlatform === 'unsupported') { context.warnings.add(`${channelName} não é um canal suportado: entrega de ${date} não foi incluída.`); return null; }
-  if (channelName && !explicitPlatform) throw new Error(`${location}: canal “${channelName}” não reconhecido. Use YouTube, Instagram, TikTok ou Spotify.`);
+  if (channelName && !explicitPlatform) throw new Error(`${location}: canal “${channelName}” não reconhecido. Use YouTube, Instagram, TikTok, Spotify ou Pinterest.`);
   const platform = explicitPlatform || hints?.platform || context.options.defaultPlatform;
   if (!platform) throw new Error(`${location}: falta o canal. Inclua uma coluna “canal” ou escolha o canal padrão na importação.`);
   const rawTitle = field(record, 'title', 'titulo', 'titulo do video', 'titulo do youtube', 'titulo seo', 'conteudo', 'tema', 'assunto', 'idea', 'ideia', 'ideia central');

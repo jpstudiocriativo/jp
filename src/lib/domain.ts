@@ -1,4 +1,4 @@
-export const platforms = { youtube: 'YouTube', instagram: 'Instagram', tiktok: 'TikTok', spotify: 'Spotify' } as const;
+export const platforms = { youtube: 'YouTube', instagram: 'Instagram', tiktok: 'TikTok', spotify: 'Spotify', pinterest: 'Pinterest' } as const;
 export type Platform = keyof typeof platforms;
 export const formats = { youtube_long: 'Vídeo longo', short: 'Vídeo curto / Reel', carousel: 'Carrossel', image: 'Imagem', spotify_episode: 'Podcast' } as const;
 export type Format = keyof typeof formats;

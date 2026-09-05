@@ -42,7 +42,7 @@ JSON de exemplo:
 }
 ```
 
-Plataformas disponíveis: YouTube, Instagram, TikTok e Spotify. Formatos: youtube_long, short, carousel, image e spotify_episode. Redes não suportadas geram avisos; não são importadas silenciosamente.
+Plataformas disponíveis: YouTube, Instagram, TikTok, Spotify e Pinterest. Formatos: youtube_long, short, carousel, image e spotify_episode. No Pinterest, use imagem ou carrossel. Redes não suportadas geram avisos; não são importadas silenciosamente.
 
 O leitor é determinístico, sem provedor de IA conectado. Não interpreta documentos arbitrários ou PDFs. A evidência deve estar expressa no arquivo; texto de thumbnail não significa imagem pronta, e publicação não inventa conclusão das etapas anteriores. A reimportação preserva checks manuais; para concluir etapas já existentes use Atualizar etapas.
 
@@ -86,4 +86,3 @@ scripts/audit-fixture.mjs é um servidor HTTP de teste local em 127.0.0.1:54329,
 ## Publicar
 
 Conecte o GitHub à Vercel e configure as duas variáveis públicas. Postar ou agendar na interface registra a operação: o aplicativo não envia publicações às APIs das redes sociais. Não usa Sites.
-
