@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { auroraSeptemberIdeas } from "@/data/aurora-september";
+import type { ImportedPlan } from "@/lib/plan-parser";
 
 const definitions = [
   { name: "Aurora", color: "#5a4381", description: "Entretenimento educativo", channels: ["youtube", "instagram", "tiktok"] },
@@ -163,6 +164,62 @@ export async function syncAuroraPlanningBase(client: SupabaseClient) {
     .update({ is_done: true, completed_at: new Date().toISOString() })
     .in("content_id", items.map((item) => item.id)).eq("block", "1 · Ideia").eq("is_done", false);
   if (updateError) throw updateError;
+}
+
+const shortSteps = (planned: boolean) => [
+  ["1 · Ideia", "Ideia e gancho definidos", true, planned],
+  ["1 · Ideia", "Formato e canal definidos", true, planned],
+  ["2 · Construção", "Selecionar ou criar material visual", true, false],
+  ["2 · Construção", "Editar vídeo", true, false],
+  ["2 · Construção", "Descrição e legenda", true, false],
+  ["3 · Publicação", "Agendar ou postar", true, false],
+] as const;
+
+const instagramSteps = [
+  ["1 · Ideia", "Ideia e formato definidos", true, true],
+  ["1 · Ideia", "Ação ou CTA definidos", true, true],
+  ["2 · Construção", "Criar imagens ou reaproveitar vídeo", true, false],
+  ["2 · Construção", "Legenda", true, false],
+  ["3 · Publicação", "Agendar ou postar", true, false],
+] as const;
+
+export async function importCasaPlan(client: SupabaseClient, plan: ImportedPlan) {
+  const { data: project, error: projectError } = await client.from("projects").select("id").eq("name", plan.project).single();
+  if (projectError) throw projectError;
+  const { data: previous, error: previousError } = await client.from("content_items").select("id,idea").eq("project_id", project.id);
+  if (previousError) throw previousError;
+  const existing = new Map((previous ?? []).map((item) => [item.idea?.match(/\[import:([^\]]+)\]/)?.[1], item.id]));
+  const assets = plan.days.flatMap((day) => [
+    { key: `casa-${day.day}-instagram`, day, platform: "instagram", type: "short", brief: day.instagram, slot: "main" },
+    { key: `casa-${day.day}-tiktok`, day, platform: "tiktok", type: "short", brief: day.tiktok, slot: "main" },
+    { key: `casa-${day.day}-youtube-short`, day, platform: "youtube", type: "short", brief: day.youtubeShort, slot: "main" },
+    ...(day.youtubeLong ? [{ key: `casa-${day.day}-youtube-long`, day, platform: "youtube", type: "youtube_long", brief: day.youtubeLong, slot: "long" }] : []),
+  ]);
+  const newAssets = assets.filter((asset) => !existing.has(asset.key));
+  if (newAssets.length) {
+    const { data: created, error } = await client.from("content_items").insert(newAssets.map((asset) => ({
+      project_id: project.id, type: asset.type, title: asset.day.title,
+      idea: `[import:${asset.key}]\n${asset.brief}`, desired_action: "Planejado no sistema editorial mensal.",
+    }))).select("id,idea");
+    if (error) throw error;
+    for (const item of created ?? []) { const key = item.idea?.match(/\[import:([^\]]+)\]/)?.[1]; if (key) existing.set(key, item.id); }
+  }
+  const contentIds = assets.map((asset) => existing.get(asset.key)).filter(Boolean) as string[];
+  const { data: existingSteps, error: stepsError } = await client.from("production_steps").select("content_id").in("content_id", contentIds);
+  if (stepsError) throw stepsError;
+  const withSteps = new Set((existingSteps ?? []).map((step) => step.content_id));
+  const now = new Date().toISOString();
+  const steps = assets.flatMap((asset) => {
+    const contentId = existing.get(asset.key); if (!contentId || withSteps.has(contentId)) return [];
+    const template = asset.type === "youtube_long" ? longVideoSteps.map(([block, label, required]) => [block, label, required, block === "1 · Ideia" && label !== "Pesquisa" && label !== "Referência técnica"] as const) : asset.platform === "instagram" ? instagramSteps : shortSteps(true);
+    return template.map(([block, label, isRequired, isDone], index) => ({ content_id: contentId, block, label, is_required: isRequired, is_done: isDone, completed_at: isDone ? now : null, sort_order: index + 1 }));
+  });
+  if (steps.length) { const { error } = await client.from("production_steps").insert(steps); if (error) throw error; }
+  const slots = assets.map((asset) => ({ project_id: project.id, platform: asset.platform, planned_for: `2026-09-${String(asset.day.day).padStart(2, "0")}`, slot_key: asset.slot, content_id: existing.get(asset.key), format: asset.type === "youtube_long" ? "Vídeo longo" : asset.platform === "instagram" ? "Conteúdo de feed" : "Vídeo curto", status: "in_progress" }));
+  for (let start = 0; start < slots.length; start += 100) { const { error } = await client.from("publications").upsert(slots.slice(start, start + 100), { onConflict: "project_id,platform,planned_for,slot_key" }); if (error) throw error; }
+  const { error: batchError } = await client.from("batch_updates").insert({ project_id: project.id, step_label: "Planejamento importado", evidence_name: plan.sourceName, note: "Arquivo lido e convertido automaticamente em conteúdos, entregas e checklists." });
+  if (batchError) throw batchError;
+  return { created: newAssets.length, longVideos: plan.days.filter((day) => day.youtubeLong).length };
 }
 
 export async function loadProduction(client: SupabaseClient): Promise<ProductionContent[]> {

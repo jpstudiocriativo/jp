@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { AuthGate } from "@/components/auth-gate";
+import { PlanImporter } from "@/components/plan-importer";
 import { requireSupabase } from "@/lib/supabase/client";
 import { ensureSeptember2026Plan, importAuroraSeptemberPlan, loadProduction, loadSeptember2026Plan, setProductionStep, syncAuroraPlanningBase, type PlannedPublication, type ProductionContent } from "@/lib/supabase/plan";
 
@@ -56,7 +57,7 @@ function Workspace({ session }: { session: Session }) {
 
   return <main style={{ minHeight: "100vh", display: "grid", gridTemplateColumns: "245px 1fr", fontFamily: "Arial, sans-serif", background: "#f8f7f4", color: "#1f2630" }}>
     <aside style={{ borderRight: "1px solid #e8e6e1", background: "#fcfbf9", padding: "28px 16px" }}><div style={{ padding: "0 12px 28px" }}><div style={{ fontSize: 12, letterSpacing: 2.2, fontWeight: 800, color: "#5f4ee5" }}>JP STUDIO</div><div style={{ fontSize: 14, marginTop: 6, color: "#68707d" }}>{session.user.email}</div></div><nav style={{ display: "grid", gap: 5 }}>{nav.map((item) => <button key={item} onClick={() => setView(item)} style={{ textAlign: "left", border: 0, borderRadius: 8, padding: "11px 12px", background: view === item ? "#ece9ff" : "transparent", color: view === item ? "#4535b3" : "#1f2630", cursor: "pointer", fontWeight: view === item ? 700 : 500 }}>{item}</button>)}</nav><p style={{ margin: "auto 12px 0", paddingTop: 50, color: "#68707d", fontSize: 12, lineHeight: 1.5 }}>A plataforma guarda plano, progresso e evidências. Arquivos pesados continuam no seu Drive, CapCut ou outro espaço externo.</p></aside>
-    <section style={{ padding: "38px clamp(22px, 4vw, 64px)", maxWidth: 1450, width: "100%", margin: "0 auto" }}><header style={{ marginBottom: 28 }}><p style={{ margin: 0, color: "#68707d", fontSize: 14 }}>Setembro de 2026 · operação editorial</p><h1 style={{ margin: "8px 0 0", fontSize: 31, letterSpacing: -1 }}>{view}</h1></header>{message && <div style={{ padding: 12, borderRadius: 8, background: "#e7f5eb", color: "#227146", fontSize: 13, marginBottom: 18 }}>{message}</div>}{loading ? <p>Carregando plano…</p> : plan.length === 0 ? <EmptyPlan createPlan={createPlan} /> : <LoadedPlan view={view} plan={plan} production={production} importAurora={importAurora} toggleStep={toggleStep} />}</section>
+    <section style={{ padding: "38px clamp(22px, 4vw, 64px)", maxWidth: 1450, width: "100%", margin: "0 auto" }}><header style={{ marginBottom: 28, display: "flex", justifyContent: "space-between", alignItems: "start", gap: 16 }}><div><p style={{ margin: 0, color: "#68707d", fontSize: 14 }}>Setembro de 2026 · operação editorial</p><h1 style={{ margin: "8px 0 0", fontSize: 31, letterSpacing: -1 }}>{view}</h1></div><PlanImporter onImported={async (success) => { setMessage(success); await loadPlan(); }} /></header>{message && <div style={{ padding: 12, borderRadius: 8, background: "#e7f5eb", color: "#227146", fontSize: 13, marginBottom: 18 }}>{message}</div>}{loading ? <p>Carregando plano…</p> : plan.length === 0 ? <EmptyPlan createPlan={createPlan} /> : <LoadedPlan view={view} plan={plan} production={production} importAurora={importAurora} toggleStep={toggleStep} />}</section>
   </main>;
 }
 
