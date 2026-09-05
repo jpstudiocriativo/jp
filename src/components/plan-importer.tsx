@@ -14,7 +14,10 @@ export function PlanImporter({ onImported }: { onImported: (message: string) => 
       const plan = parsePlanFile(file.name, await file.text());
       const result = await importCasaPlan(requireSupabase(), plan);
       onImported(`${file.name} importado: ${result.created} entregas criadas, incluindo ${result.longVideos} vídeos longos. O planejamento comprovado já foi marcado.`);
-    } catch (reason) { setError(reason instanceof Error ? reason.message : "Não foi possível ler este plano."); }
+    } catch (reason) {
+      const detail = reason && typeof reason === "object" && "message" in reason ? String((reason as { message: unknown }).message) : reason instanceof Error ? reason.message : "Não foi possível ler este plano.";
+      setError(/slot_key|publications_plan_slot_unique/i.test(detail) ? "A base ainda precisa da migração 0003 para aceitar Short e vídeo longo no mesmo dia. Execute o arquivo 0003 no Supabase e tente de novo." : detail);
+    }
     finally { setBusy(false); }
   }
   return <div style={{ display: "inline-grid", gap: 6 }}><label style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: 8, background: busy ? "#a7a0d8" : "#5f4ee5", color: "white", padding: "10px 13px", fontWeight: 700, cursor: busy ? "wait" : "pointer", fontSize: 13 }}><input type="file" accept=".md,.txt,text/markdown,text/plain" hidden disabled={busy} onChange={(event) => { const file = event.target.files?.[0]; if (file) receive(file); event.currentTarget.value = ""; }} />{busy ? "Lendo e organizando…" : "Importar plano"}</label>{error && <span style={{ color: "#b43a32", fontSize: 12, maxWidth: 360 }}>{error}</span>}<span style={{ color: "#68707d", fontSize: 11 }}>Aceita .md e .txt. O arquivo vira entregas e checklists automaticamente.</span></div>;
