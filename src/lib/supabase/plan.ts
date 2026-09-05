@@ -183,17 +183,17 @@ const instagramSteps = [
   ["3 · Publicação", "Agendar ou postar", true, false],
 ] as const;
 
-export async function importCasaPlan(client: SupabaseClient, plan: ImportedPlan) {
+export async function importEditorialPlan(client: SupabaseClient, plan: ImportedPlan) {
   const { data: project, error: projectError } = await client.from("projects").select("id").eq("name", plan.project).single();
   if (projectError) throw projectError;
   const { data: previous, error: previousError } = await client.from("content_items").select("id,idea").eq("project_id", project.id);
   if (previousError) throw previousError;
   const existing = new Map((previous ?? []).map((item) => [item.idea?.match(/\[import:([^\]]+)\]/)?.[1], item.id]));
   const assets = plan.days.flatMap((day) => [
-    { key: `casa-${day.day}-instagram`, day, platform: "instagram", type: "short", brief: day.instagram, slot: "main" },
-    { key: `casa-${day.day}-tiktok`, day, platform: "tiktok", type: "short", brief: day.tiktok, slot: "main" },
-    { key: `casa-${day.day}-youtube-short`, day, platform: "youtube", type: "short", brief: day.youtubeShort, slot: "main" },
-    ...(day.youtubeLong ? [{ key: `casa-${day.day}-youtube-long`, day, platform: "youtube", type: "youtube_long", brief: day.youtubeLong, slot: "long" }] : []),
+    ...(day.instagram ? [{ key: `${plan.project}-${day.day}-instagram`, day, platform: "instagram", type: "short", brief: day.instagram, slot: "main" }] : []),
+    ...(day.tiktok ? [{ key: `${plan.project}-${day.day}-tiktok`, day, platform: "tiktok", type: "short", brief: day.tiktok, slot: "main" }] : []),
+    ...(day.youtubeShort ? [{ key: `${plan.project}-${day.day}-youtube-short`, day, platform: "youtube", type: "short", brief: day.youtubeShort, slot: "main" }] : []),
+    ...(day.youtubeLong ? [{ key: `${plan.project}-${day.day}-youtube-long`, day, platform: "youtube", type: "youtube_long", brief: day.youtubeLong, slot: "long" }] : []),
   ]);
   const newAssets = assets.filter((asset) => !existing.has(asset.key));
   if (newAssets.length) {

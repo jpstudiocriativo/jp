@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { parsePlanFile } from "@/lib/plan-parser";
-import { importCasaPlan } from "@/lib/supabase/plan";
+import { importEditorialPlan } from "@/lib/supabase/plan";
 import { requireSupabase } from "@/lib/supabase/client";
 
 export function PlanImporter({ onImported }: { onImported: (message: string) => void }) {
@@ -12,8 +12,8 @@ export function PlanImporter({ onImported }: { onImported: (message: string) => 
     setBusy(true); setError("");
     try {
       const plan = parsePlanFile(file.name, await file.text());
-      const result = await importCasaPlan(requireSupabase(), plan);
-      onImported(`${file.name} importado: ${result.created} entregas criadas, incluindo ${result.longVideos} vídeos longos. O planejamento comprovado já foi marcado.`);
+      const result = await importEditorialPlan(requireSupabase(), plan);
+      onImported(`${file.name} analisado e importado para ${plan.project}: ${result.created} entregas criadas, incluindo ${result.longVideos} vídeos longos. O planejamento comprovado já foi marcado.`);
     } catch (reason) {
       const detail = reason && typeof reason === "object" && "message" in reason ? String((reason as { message: unknown }).message) : reason instanceof Error ? reason.message : "Não foi possível ler este plano.";
       setError(/slot_key|publications_plan_slot_unique/i.test(detail) ? "A base ainda precisa da migração 0003 para aceitar Short e vídeo longo no mesmo dia. Execute o arquivo 0003 no Supabase e tente de novo." : detail);

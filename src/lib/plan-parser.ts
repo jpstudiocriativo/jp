@@ -1,5 +1,5 @@
 export type ImportedPlan = {
-  project: "Casa de Afeto";
+  project: string;
   sourceName: string;
   days: { day: number; title: string; instagram: string; tiktok: string; youtubeShort: string; youtubeLong?: string }[];
 };
@@ -7,11 +7,14 @@ export type ImportedPlan = {
 const line = (section: string, channel: string) => section.match(new RegExp(`- \\*\\*${channel}:\\*\\*([^\\n]+)`, "i"))?.[1]?.trim() ?? "";
 
 export function parsePlanFile(sourceName: string, text: string): ImportedPlan {
-  if (!/Casa de Afeto/i.test(text)) throw new Error("Por enquanto este importador reconhece o modelo editorial da Casa de Afeto.");
+  const knownProjects = ["Aurora", "Casa de Afeto", "Conhecimento Acessível", "Pense IA", "Pookies", "Climatização Inteligente"];
+  const project = knownProjects.find((name) => new RegExp(`\\b${name}\\b`, "i").test(text));
+  if (!project) throw new Error("Não identifiquei o projeto no arquivo. Use o nome do projeto no título ou no começo do plano.");
   const sections = [...text.matchAll(/### Dia (\d+) — ([^\n]+)\n([\s\S]*?)(?=\n### Dia |\n## (?:CTAs|Rotina|Métricas)|$)/g)];
-  if (sections.length !== 30) throw new Error(`O arquivo trouxe ${sections.length} dias identificáveis; o plano mensal precisa ter 30.`);
+  if (!sections.length) throw new Error("Não encontrei dias no formato ‘### Dia 1 — Título’. Em breve a importação também aceitará planos em tabela.");
+  if (sections.length > 31) throw new Error(`Encontrei ${sections.length} dias; revise se há títulos de dia duplicados.`);
   return {
-    project: "Casa de Afeto", sourceName,
+    project, sourceName,
     days: sections.map((match) => {
       const section = match[3];
       return {
