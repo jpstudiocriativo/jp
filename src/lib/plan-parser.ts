@@ -193,15 +193,17 @@ function channelEntries(record: Fields, context: Context, location: string, dayT
   const date = field(record, 'date', 'data', 'day', 'dia', '#');
   const output: PlanEntry[] = [];
   for (const [key, value] of Object.entries(record)) {
-    if (!/^(?:youtube|you tube|yt\b|shorts?\b|instagram|insta\b|reels?\b|tiktok|tik tok|spotify|podcast|pinterest|stories|facebook|linkedin|threads|twitter)/.test(normalize(key))) continue;
-    const platform = resolvePlatform(key);
+    const normalizedKey = normalize(key);
+    const motherContent = /^(?:conteudo mae|conteudo mae \/ titulo sugerido|conteudo mae titulo sugerido)$/.test(normalizedKey);
+    if (!/^(?:youtube|you tube|yt\b|shorts?\b|instagram|insta\b|reels?\b|tiktok|tik tok|spotify|podcast|pinterest|stories|facebook|linkedin|threads|twitter)/.test(normalizedKey) && !motherContent) continue;
+    const platform = resolvePlatform(key) || (motherContent ? 'youtube' : undefined);
     if (!platform || !isEvidence(value)) continue;
     if (platform === 'unsupported') { context.warnings.add(`${clean(key)} aparece no arquivo, mas não é um canal suportado. Essas sugestões permanecem no arquivo e não criam entregas.`); continue; }
     const description = asText(value);
-    const isLong = platform === 'youtube' && resolveFormat(key) === 'youtube_long';
+    const isLong = platform === 'youtube' && (resolveFormat(key) === 'youtube_long' || motherContent);
     const quotedTitle = description.match(/^[“"](.+?)[”"]\.?$/s)?.[1];
     const headline = isLong && weeklyTitle ? weeklyTitle : quotedTitle || dayTitle || description;
-    const entry = recordEntry({ date, platform, title: headline, brief: description, ...(resolveFormat(key) ? { format: resolveFormat(key) } : {}), source: dayTitle ? `Ideia do dia: ${dayTitle}` : '', cta: field(record, 'cta'), reference: field(record, 'referencia', 'referencia tecnica'), research: field(record, 'pesquisa') }, context, `${location}, ${key}`);
+    const entry = recordEntry({ date, platform, title: headline, brief: description, format: motherContent ? 'youtube_long' : resolveFormat(key), source: dayTitle ? `Ideia do dia: ${dayTitle}` : '', cta: field(record, 'cta'), reference: field(record, 'referencia', 'referencia tecnica'), research: field(record, 'pesquisa') }, context, `${location}, ${key}`);
     if (entry) output.push(entry);
   }
   return output;
@@ -323,7 +325,7 @@ export function parsePlanFile(sourceName: string, sourceText: string, options: P
     projectName = projectFromText(text, options.projectNames || []);
     parseMarkdown(text, context);
   }
-  if (!context.entries.length) throw new Error('Não encontrei entregas válidas. Use seções “### Dia 1 — Ideia”, tabela com Dia/Canal/Título, CSV ou JSON. Canais aceitos: YouTube, Instagram, TikTok e Spotify.');
+  if (!context.entries.length) throw new Error('Não encontrei entregas válidas. Use seções “### Dia 1 — Ideia”, tabela com Dia/Canal/Título, CSV ou JSON. Canais aceitos: YouTube, Instagram, TikTok, Spotify e Pinterest.');
   const entries: PlanEntry[] = []; const slots = new Map<string, PlanEntry>();
   for (const entry of context.entries) {
     const slot = `${entry.date}|${entry.platform}|${entry.format}`;

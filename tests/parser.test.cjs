@@ -33,6 +33,13 @@ test('Aurora real: 30 longs; published status and thumbnail planning evidence pr
  assert.equal(steps.find(s=>s.label==='Roteiro (texto)').is_done,false);
  assert.equal(steps.find(s=>s.label==='Título do vídeo (SEO e IA)').is_done,true);
 });
+test('Conhecimento Acessível: conteúdo-mãe da tabela vira YouTube longo',{skip:!fs.existsSync(path.resolve(root,'../Conhecimento Acessível/planejamento/Plano_de_Conteudo_Setembro_07-30.md'))},()=>{
+ const file = path.resolve(root,'../Conhecimento Acessível/planejamento/Plano_de_Conteudo_Setembro_07-30.md');
+ const plan = parsePlanFile('plano.md', fs.readFileSync(file,'utf8'), { ...options, projectNames: ['Conhecimento Acessível'] });
+ assert.equal(plan.projectName, 'Conhecimento Acessível');
+ assert.equal(plan.entries.filter(e => e.platform === 'youtube' && e.format === 'youtube_long').length, 24);
+ assert.equal(plan.entries.find(e => e.date === '2026-09-07' && e.platform === 'youtube').title, 'Empreender sendo mulher tem desafios que não aparecem na planilha');
+});
 test('CSV arbitrary project and month, quoted separators and CRLF',()=>{
  const plan=parsePlanFile('plano.csv','projeto;data;canal;formato;titulo;ideia;cta\r\nMarca nova;2027-02-02;instagram;carousel;"Título; com separador";Ideia;Salvar\r\n',{month:'2027-02'});
  assert.equal(plan.projectName,'Marca nova'); assert.equal(plan.entries[0].title,'Título; com separador');
